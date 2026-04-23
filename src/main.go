@@ -786,14 +786,14 @@ func windowsTerminals() []*windowsTerminal {
 					"-o", `font.italic.style="Bold Italic"`)
 			}
 			args = append(args, "-e", c)
-			return exec.Command("alacritty.exe", args...), ""
+			return exec.Command(resolveWindowsExe("alacritty"), args...), ""
 		}},
 		{name: "wezterm", build: func(c string, s int) (*exec.Cmd, string) {
 			fontExpr := fmt.Sprintf(`wezterm.font("%s")`, fontName)
 			if bold {
 				fontExpr = fmt.Sprintf(`wezterm.font("%s", {weight="Bold"})`, fontName)
 			}
-			return exec.Command("wezterm.exe",
+			return exec.Command(resolveWindowsExe("wezterm"),
 				"--config", "font="+fontExpr,
 				"--config", fmt.Sprintf("font_size=%d", s),
 				"--config", fmt.Sprintf(`colors={background="%s",foreground="%s"}`, bgHex, fgHex),
@@ -814,7 +814,7 @@ func windowsTerminals() []*windowsTerminal {
 				args = append(args, "-o", "BoldAsFont=yes")
 			}
 			args = append(args, "-e", c)
-			return exec.Command("mintty.exe", args...), ""
+			return exec.Command(resolveWindowsExe("mintty"), args...), ""
 		}},
 		{name: "wt", build: func(c string, s int) (*exec.Cmd, string) {
 			// wt.exe only exposes --tabColor (tab header stripe) and --title
@@ -823,13 +823,18 @@ func windowsTerminals() []*windowsTerminal {
 			// we refuse to do.
 			note := fmt.Sprintf("wt.exe cannot set font/background per-instance; tab stripe tinted %s only. "+
 				"To fully customise, add a \"Claune\" color scheme + profile to Settings once.", bgHex)
-			return exec.Command("wt.exe", "new-tab",
+			return exec.Command(resolveWindowsExe("wt"), "new-tab",
 				"--title", "Claune",
 				"--tabColor", bgHex,
 				"cmd.exe", "/k", c), note
 		}},
 		{name: "cmd", build: func(c string, _ int) (*exec.Cmd, string) {
-			return exec.Command("cmd.exe", "/c", "start", "Claune", "cmd.exe", "/k", c),
+			// `start`'s first quoted argument is interpreted as the window
+			// title. Go auto-quotes argv entries containing spaces, so if
+			// cmdPath has a space the quoted path would be mistaken for a
+			// title and start would have no command left. Pass an explicit
+			// empty title ("") so the command slot is unambiguous.
+			return exec.Command("cmd.exe", "/c", "start", "", "cmd.exe", "/k", c),
 				"cmd.exe cannot be restyled from outside — Properties → Font sets it manually."
 		}},
 	}
@@ -855,12 +860,12 @@ func launchWindows(opts options, cmdPath string) error {
 
 	var tried []string
 	for _, t := range terms {
-		// Accept both "foo" and "foo.exe" on PATH — LookPath handles both.
-		if _, err := exec.LookPath(t.name + ".exe"); err != nil {
-			if _, err2 := exec.LookPath(t.name); err2 != nil {
-				tried = append(tried, t.name+" (not installed)")
-				continue
-			}
+		// PATHEXT handling: LookPath(t.name) will find .exe / .cmd / .bat /
+		// Scoop shim wrappers automatically. Trying name+".exe" explicitly
+		// was redundant and skipped non-.exe installs.
+		if _, err := exec.LookPath(t.name); err != nil {
+			tried = append(tried, t.name+" (not installed)")
+			continue
 		}
 		cmd, note := t.build(cmdPath, opts.size)
 		infof("using terminal: %s", t.name)
@@ -997,7 +1002,39 @@ func installFontWindows(src string) error {
 	if err := os.MkdirAll(dstDir, 0o755); err != nil {
 		return err
 	}
-	return copyIfMissing(src, filepath.Join(dstDir, filepath.Base(src)))
+	dst := filepath.Join(dstDir, filepath.Base(src))
+	if err := copyIfMissing(src, dst); err != nil {
+		return err
+	}
+	// On Windows 10+, copying a TTF into the per-user Fonts dir is not
+	// enough — GDI/DirectWrite only discovers fonts that are registered
+	// under HKCU\Software\Microsoft\Windows NT\CurrentVersion\Fonts. Shell
+	// out to reg.exe (ships with every Windows install) instead of pulling
+	// in golang.org/x/sys/windows/registry.
+	family, err := queryFontFamily(src)
+	if err != nil || family == "" {
+		// fc-query is optional; fall back to the base filename without
+		// extension, which is usually close enough for the registry key.
+		family = strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
+	}
+	valueName := family + " (TrueType)"
+	key := `HKCU\Software\Microsoft\Windows NT\CurrentVersion\Fonts`
+	reg := exec.Command("reg.exe", "add", key, "/v", valueName, "/t", "REG_SZ", "/d", dst, "/f")
+	if out, err := reg.CombinedOutput(); err != nil {
+		return fmt.Errorf("reg add failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// resolveWindowsExe returns the PATH-resolved absolute path for a terminal
+// binary (honouring PATHEXT, so .cmd/.bat shims work). Falls back to
+// name+".exe" when LookPath fails so the error surfaces in exec.Start
+// instead of at argv-build time.
+func resolveWindowsExe(name string) string {
+	if p, err := exec.LookPath(name); err == nil {
+		return p
+	}
+	return name + ".exe"
 }
 
 func copyIfMissing(src, dst string) error {
