@@ -250,42 +250,6 @@ figure.shot figcaption {
 .swatch.plum  { background: var(--pink-deep); color: var(--pink-deep); box-shadow: 0 0 0 1px var(--line-2); }
 .swatch.honey { background: var(--honey);     color: var(--honey); }
 
-/* --- Callout (the clown nose explanation) ------------------------------ */
-
-.callout {
-  margin: 1.2rem 0 1.5rem;
-  padding: 1rem 1.1rem;
-  background: color-mix(in oklab, var(--orange) 12%, var(--bg-3));
-  border: 1px solid color-mix(in oklab, var(--orange) 40%, transparent);
-  border-radius: 12px;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.9rem;
-  font-size: 0.95rem;
-}
-.callout p {
-  margin: 0;
-  color: var(--fg-dim);
-  line-height: 1.55;
-  max-width: none;
-}
-.nose-demo {
-  flex: 0 0 auto;
-  width: 2.3rem;
-  height: 2.3rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--orange);
-  color: #ff2121;
-  font-weight: 800;
-  font-size: 1.35rem;
-  line-height: 1;
-  border-radius: 999px;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.35) inset,
-              0 8px 22px -12px rgba(215, 119, 87, 0.8);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
 
 /* --- Fine print + footer ----------------------------------------------- */
 

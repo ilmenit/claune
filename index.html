@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>claune — a terminal launcher worthy of Claude Opus</title>
-  <meta name="description" content="Opens a fresh terminal for Claude Code. Switches the font to Comic Sans when today's pass rate drops, turns the background pink when the status page does, and paints a red clown nose for good measure.">
+  <meta name="description" content="Opens a fresh terminal for Claude Code. Switches the font to Comic Sans when today's pass rate drops, and turns the background pink when the status page does.">
   <meta name="theme-color" content="#0b0c0f">
   <meta property="og:title" content="claune">
-  <meta property="og:description" content="Comic Sans when Claude has an off day. Dark pink when the status page lights up. A red clown nose on the worst days.">
+  <meta property="og:description" content="Comic Sans when Claude has an off day. Dark pink when the status page lights up.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ilmenit.github.io/claune/">
   <meta property="og:image" content="screenshots/claune.png">
@@ -49,11 +49,10 @@
     <p class="meta">Linux · macOS · Windows &nbsp;·&nbsp; single static binary, &lt;10 MB</p>
   </header>
 
-  <!-- Hero screenshot: the money shot. Comic Sans + pink bg + red nose. -->
   <figure class="shot">
-    <img src="screenshots/is-down-and-stupid.png" alt="claune running claude in Comic Sans on a dark-pink background, with a red Ｏ on an orange circle painted at row 3, column 5">
+    <img src="screenshots/is-down-and-stupid.png" alt="claune running claude in Comic Sans on a dark-pink background">
     <figcaption>
-      A degraded day, dignified: Comic Sans, dark pink, and the clown nose &mdash; all three gestures at once.
+      A degraded day, dignified: Comic Sans and dark pink at once.
     </figcaption>
   </figure>
 
@@ -69,11 +68,6 @@
     <p>
       If today's score on the public tracker is at least ten points below baseline (or below the 30-day mean, while the baseline is "collecting"), the font switches to <strong>Comic Sans MS</strong>. If Microsoft's font isn't installed we fall back to <a href="https://fonts.google.com/specimen/Caveat">Caveat</a>. Nothing conveys "state of the art" quite like Comic Sans.
     </p>
-
-    <div class="callout">
-      <span class="nose-demo" aria-hidden="true">Ｏ</span>
-      <p><strong>Linux bonus.</strong> When Comic mode fires, a fullwidth red <strong>Ｏ</strong> is repainted on an <strong><code>#D77757</code></strong> orange background at row 3, column 5 every 250 milliseconds &mdash; a magnificent round red clown nose. The wrapper saves the cursor with <code>ESC 7</code>, jumps to position, paints, and restores with <code>ESC 8</code>, so claude's own cursor is never disturbed. Cleaned up when the terminal closes. An adornment humanity's finest model has unquestionably earned.</p>
-    </div>
 
     <h3><span class="swatch plum"></span>The blush &mdash; when the status page reddens</h3>
     <p>
@@ -109,7 +103,7 @@ curl -LO https://github.com/ilmenit/claune/releases/download/nightly/claune-linu
 chmod +x claune-linux-amd64 &amp;&amp; mv claune-linux-amd64 ~/.local/bin/claune
 
 claune                    <span class="comment"># normal launch</span>
-claune -test is-stupid    <span class="comment"># preview comic mode + clown nose</span>
+claune -test is-stupid    <span class="comment"># preview comic mode</span>
 claune -test is-down      <span class="comment"># preview pink background</span>
 claune -test both         <span class="comment"># both at once, maximum ceremony</span></code></pre>
 
