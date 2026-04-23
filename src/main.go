@@ -64,11 +64,6 @@ type options struct {
 	noAuto      bool
 	configPath  string
 	testMode    string // "", "is-stupid", "is-down", "both"
-
-	// comicMode is set by applyConfigAndSignals when today's pass rate has
-	// dropped (or -test forces it). Read downstream so we can adorn the new
-	// terminal with a clown nose to match the Comic Sans font.
-	comicMode bool
 }
 
 func main() {
@@ -137,19 +132,7 @@ func main() {
 		}
 	}
 
-	// When comic mode is on, wrap the command in a small shell that keeps
-	// redrawing a red '0' at (row 1, col 5) — a clown nose to match the
-	// Comic Sans font on days when the model has earned it. Linux-only
-	// (uses ANSI escapes; every Linux terminal we support honours them).
 	launchCmd := cmdPath
-	if opts.comicMode && runtime.GOOS == "linux" {
-		if wrapped, err := wrapClownNose(cmdPath); err != nil {
-			warnf("clown nose: %v (continuing without)", err)
-		} else {
-			launchCmd = wrapped
-			infof("clown nose: red Ｏ on orange #D77757 at (3,5), refreshed every 250ms")
-		}
-	}
 
 	var launchErr error
 	switch runtime.GOOS {
@@ -295,7 +278,6 @@ func applyConfigAndSignals(opts *options, cfg Config, cfgPath string) {
 		}
 	}
 	if comicMode {
-		opts.comicMode = true
 		chosen := pickComicFont(cfg, cfgDir)
 		if chosen.family != "" {
 			opts.font = chosen.family
@@ -414,53 +396,6 @@ func pickComicFont(cfg Config, cfgDir string) pickedFont {
 		}
 	}
 	return pickedFont{}
-}
-
-// wrapClownNose writes a tiny shell script that (a) backgrounds a loop
-// which redraws a red '0' at (row 1, col 5) every 250 ms and (b) runs the
-// real command. When the real command exits, the loop is killed, the cell
-// is cleared, and the temp dir is removed.
-//
-// Not using `exec <cmd>` here: exec would replace sh and wipe the trap, so
-// cleanup would never fire. The cost of the extra sh process is negligible
-// and its lifetime matches the child's.
-func wrapClownNose(cmdPath string) (string, error) {
-	tmp, err := os.MkdirTemp("", "claune-nose-*")
-	if err != nil {
-		return "", err
-	}
-	script := filepath.Join(tmp, "run.sh")
-	body := `#!/bin/sh
-# Clown nose: \0337 saves cursor + attrs, we jump to row 1 col 5, paint a
-# red '0', reset, and \0338 restores — so claude's own cursor position
-# and colour aren't disturbed. Refresh is fast enough to repaint over any
-# TUI redraw within a quarter second.
-(
-  while :; do
-    printf '\0337\033[3;5H\033[1;31;48;2;215;119;87mＯ\033[0m\0338'
-    sleep 0.25
-  done
-) &
-NOSE=$!
-cleanup() {
-  kill "$NOSE" 2>/dev/null
-  # Clear the nose cell on the way out.
-  printf '\0337\033[3;5H  \0338'
-  rm -rf ` + shellQuoteStr(tmp) + `
-}
-trap cleanup EXIT INT TERM HUP
-` + shellQuoteStr(cmdPath) + `
-`
-	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
-		os.RemoveAll(tmp)
-		return "", err
-	}
-	return script, nil
-}
-
-// shellQuoteStr wraps a single value in POSIX-safe single quotes.
-func shellQuoteStr(s string) string {
-	return "'" + strings.ReplaceAll(s, `'`, `'\''`) + "'"
 }
 
 func nonEmpty(s, fallback string) string {
