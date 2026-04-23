@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>claune — a terminal launcher worthy of Claude Opus</title>
+  <meta name="description" content="Opens a fresh terminal for Claude Code. Switches the font to Comic Sans when today's pass rate drops, turns the background pink when the status page does, and paints a red clown nose for good measure.">
+  <meta name="theme-color" content="#0b0c0f">
+  <meta property="og:title" content="claune">
+  <meta property="og:description" content="Comic Sans when Claude has an off day. Dark pink when the status page lights up. A red clown nose on the worst days.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ilmenit.github.io/claune/">
+  <meta property="og:image" content="screenshots/claune.png">
+
+  <link rel="icon" type="image/png" href="screenshots/claune.png">
+  <link rel="apple-touch-icon" href="screenshots/claune.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Instrument+Serif&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<article>
+
+  <!-- Hero --------------------------------------------------------------- -->
+  <header class="hero">
+    <img class="logo" src="screenshots/claune.png" alt="claune logo" width="128" height="128">
+
+    <h1>
+      A terminal launcher <br>
+      worthy of <em>Claude Opus.</em>
+    </h1>
+
+    <p class="lede">
+      Opus is, without serious dispute, the most powerful AI model ever committed to silicon &mdash; arguably too dangerous for general release. <strong>claune</strong> opens a fresh terminal and runs <code>claude</code> inside it, with a font and colour scheme that quietly reflect today's operational posture.
+    </p>
+
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/ilmenit/claune/releases/tag/nightly">
+        Download nightly <span class="arrow">→</span>
+      </a>
+      <a class="btn" href="https://github.com/ilmenit/claune">GitHub</a>
+      <a class="btn ghost" href="https://github.com/ilmenit/claune#readme">Docs</a>
+    </div>
+
+    <p class="meta">Linux · macOS · Windows &nbsp;·&nbsp; single static binary, &lt;10 MB</p>
+  </header>
+
+  <!-- Hero screenshot: the money shot. Comic Sans + pink bg + red nose. -->
+  <figure class="shot">
+    <img src="screenshots/is-down-and-stupid.png" alt="claune running claude in Comic Sans on a dark-pink background, with a red Ｏ on an orange circle painted at row 3, column 5">
+    <figcaption>
+      A degraded day, dignified: Comic Sans, dark pink, and the clown nose &mdash; all three gestures at once.
+    </figcaption>
+  </figure>
+
+  <!-- Signals as prose --------------------------------------------------- -->
+  <section>
+    <h2>What it does</h2>
+
+    <p>
+      Before launching, <code>claune</code> checks two public dashboards and shapes the terminal accordingly. Everything is per-instance: nothing is written to your persistent settings. Three quiet gestures.
+    </p>
+
+    <h3><span class="swatch pink"></span>Comic mode &mdash; when today's pass rate drops</h3>
+    <p>
+      If today's score on the public tracker is at least ten points below baseline (or below the 30-day mean, while the baseline is "collecting"), the font switches to <strong>Comic Sans MS</strong>. If Microsoft's font isn't installed we fall back to <a href="https://fonts.google.com/specimen/Caveat">Caveat</a>. Nothing conveys "state of the art" quite like Comic Sans.
+    </p>
+
+    <div class="callout">
+      <span class="nose-demo" aria-hidden="true">Ｏ</span>
+      <p><strong>Linux bonus.</strong> When Comic mode fires, a fullwidth red <strong>Ｏ</strong> is repainted on an <strong><code>#D77757</code></strong> orange background at row 3, column 5 every 250 milliseconds &mdash; a magnificent round red clown nose. The wrapper saves the cursor with <code>ESC 7</code>, jumps to position, paints, and restores with <code>ESC 8</code>, so claude's own cursor is never disturbed. Cleaned up when the terminal closes. An adornment humanity's finest model has unquestionably earned.</p>
+    </div>
+
+    <h3><span class="swatch plum"></span>The blush &mdash; when the status page reddens</h3>
+    <p>
+      If <a href="https://status.claude.com/">status.claude.com</a> reports Claude Code or the Claude API as anything other than <code>operational</code>, the terminal background shifts to a confident dark pink. Some call it degraded. We call it blushing.
+    </p>
+
+    <h3><span class="swatch honey"></span>Contemplation &mdash; when Opus takes its time</h3>
+    <p>
+      Font size is scaled by the ratio of today's average benchmark runtime to the 30-day mean. When Opus enters a period of unusually rich contemplation, it would be rude not to make room for its thoughts.
+    </p>
+  </section>
+
+  <!-- The dashboard ----------------------------------------------------- -->
+  <section>
+    <h2>The dashboard it watches</h2>
+    <p>
+      <code>claune</code> reads daily pass-rate and average-runtime data from
+      <a href="https://marginlab.ai/trackers/claude-code/">marginlab.ai/trackers/claude-code</a>,
+      and component health from <a href="https://status.claude.com/">status.claude.com</a>. Every decision it makes on your machine is derived from these two public sources &mdash; five seconds of fetch, then it gets out of the way. If a fetch fails, the signal is simply dropped; the launch never waits.
+    </p>
+
+    <figure class="shot">
+      <img src="screenshots/metrics.png" alt="Daily pass rate and average runtime for Claude Code from the marginlab.ai tracker">
+      <figcaption>Daily pass rate and average runtime &mdash; the chart <code>claune</code> consults before every launch.</figcaption>
+    </figure>
+  </section>
+
+  <!-- Get it ------------------------------------------------------------- -->
+  <section>
+    <h2>Get it</h2>
+    <pre><code><span class="comment"># grab the latest nightly and go</span>
+curl -LO https://github.com/ilmenit/claune/releases/download/nightly/claune-linux-amd64
+chmod +x claune-linux-amd64 &amp;&amp; mv claune-linux-amd64 ~/.local/bin/claune
+
+claune                    <span class="comment"># normal launch</span>
+claune -test is-stupid    <span class="comment"># preview comic mode + clown nose</span>
+claune -test is-down      <span class="comment"># preview pink background</span>
+claune -test both         <span class="comment"># both at once, maximum ceremony</span></code></pre>
+
+    <p class="fine">
+      First launch writes <code>~/.config/claune/config.json</code>. See the
+      <a href="https://github.com/ilmenit/claune#readme">README</a>
+      for build-from-source, the full per-terminal support matrix, and every configuration field.
+    </p>
+  </section>
+
+</article>
+
+<footer>
+  <span>claune &nbsp;·&nbsp; opens terminals with appropriate solemnity</span>
+  <a href="https://github.com/ilmenit/claune">github.com/ilmenit/claune ↗</a>
+</footer>
+
+</body>
+</html>

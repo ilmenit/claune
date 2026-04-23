@@ -1,0 +1,114 @@
+name: Nightly build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            goos: linux
+            goarch: amd64
+            ext: ''
+          - target: linux-arm64
+            goos: linux
+            goarch: arm64
+            ext: ''
+          - target: darwin-amd64
+            goos: darwin
+            goarch: amd64
+            ext: ''
+          - target: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            ext: ''
+          - target: windows-amd64
+            goos: windows
+            goarch: amd64
+            ext: '.exe'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p dist
+          out="dist/claune-${{ matrix.target }}${{ matrix.ext }}"
+          go build -trimpath -ldflags "-s -w" -o "$out" ./src
+          ls -lh "$out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claune-${{ matrix.target }}
+          path: dist/claune-${{ matrix.target }}${{ matrix.ext }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: publish nightly release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Describe build
+        id: meta
+        run: |
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish rolling nightly
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: Nightly build
+          prerelease: true
+          draft: false
+          # Keep the same tag, but move it to the fresh commit so download
+          # links stay stable at /releases/tag/nightly.
+          make_latest: 'false'
+          body: |
+            Rolling build from the tip of `main`. Overwrites on every push.
+
+            - Commit: [`${{ steps.meta.outputs.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            - Built: ${{ steps.meta.outputs.date }}
+
+            ## Downloads
+            | Platform | Asset |
+            |---|---|
+            | Linux (x86_64) | `claune-linux-amd64` |
+            | Linux (arm64) | `claune-linux-arm64` |
+            | macOS (Intel) | `claune-darwin-amd64` |
+            | macOS (Apple Silicon) | `claune-darwin-arm64` |
+            | Windows (x86_64) | `claune-windows-amd64.exe` |
+
+            These are unsigned; macOS and Windows may warn on first run.
+          files: dist/*
