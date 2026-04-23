@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -817,16 +818,25 @@ func windowsTerminals() []*windowsTerminal {
 			return exec.Command(resolveWindowsExe("mintty"), args...), ""
 		}},
 		{name: "wt", build: func(c string, s int) (*exec.Cmd, string) {
-			// wt.exe only exposes --tabColor (tab header stripe) and --title
-			// as per-instance appearance flags. Font and terminal background
-			// cannot be set without editing the user's settings.json, which
-			// we refuse to do.
-			note := fmt.Sprintf("wt.exe cannot set font/background per-instance; tab stripe tinted %s only. "+
-				"To fully customise, add a \"Claune\" color scheme + profile to Settings once.", bgHex)
+			// wt.exe exposes no CLI flag for font or terminal background. The
+			// one clean path is a Windows Terminal *fragment*: a JSON file
+			// dropped into %LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments
+			// that publishes a "Claune" profile with our font/bg/fg. We then
+			// launch `wt -p Claune`.
+			if err := writeWtFragment(c, s); err != nil {
+				note := fmt.Sprintf("wt.exe: fragment write failed (%v); falling back to tab stripe tinted %s only", err, bgHex)
+				return exec.Command(resolveWindowsExe("wt"), "new-tab",
+					"--title", "Claune",
+					"--tabColor", bgHex,
+					"cmd.exe", "/k", c), note
+			}
+			note := "wt.exe: launching via a generated fragment profile named \"Claune\". " +
+				"If an existing wt window is already open, close it first so the fragment is picked up. " +
+				"The profile persists in your dropdown until the fragment file is removed."
 			return exec.Command(resolveWindowsExe("wt"), "new-tab",
+				"-p", "Claune",
 				"--title", "Claune",
-				"--tabColor", bgHex,
-				"cmd.exe", "/k", c), note
+				"--tabColor", bgHex), note
 		}},
 		{name: "cmd", build: func(c string, _ int) (*exec.Cmd, string) {
 			// `start`'s first quoted argument is interpreted as the window
@@ -1022,6 +1032,90 @@ func installFontWindows(src string) error {
 	reg := exec.Command("reg.exe", "add", key, "/v", valueName, "/t", "REG_SZ", "/d", dst, "/f")
 	if out, err := reg.CombinedOutput(); err != nil {
 		return fmt.Errorf("reg add failed: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// writeWtFragment publishes a Windows Terminal fragment that defines a
+// "Claune" color scheme + profile carrying our font/bg/fg + commandline.
+// Launching wt.exe with `-p Claune` then picks that profile. Fragments
+// are Microsoft's sanctioned way for third-party apps to extend Windows
+// Terminal without mutating the user's settings.json.
+//
+// Caveat: a running wt.exe host only re-reads fragments on start. If a
+// Terminal window is already open the new profile may not be visible
+// until the host process exits. We flag that in the caller's note.
+func writeWtFragment(cmdPath string, size int) error {
+	local := os.Getenv("LOCALAPPDATA")
+	if local == "" {
+		return fmt.Errorf("LOCALAPPDATA not set")
+	}
+	// Wrap in `cmd.exe /k` so the window stays open when the child exits;
+	// matches the fallback path and keeps short-lived commands (cmd, echo)
+	// observable instead of flashing and closing.
+	commandline := `cmd.exe /k "` + cmdPath + `"`
+
+	scheme := map[string]any{
+		"name":                "Claune",
+		"background":          bgHex,
+		"foreground":          fgHex,
+		"cursorColor":         fgHex,
+		"selectionBackground": fgHex,
+		"black":               "#0C0C0C",
+		"red":                 "#C50F1F",
+		"green":               "#13A10E",
+		"yellow":              "#C19C00",
+		"blue":                "#0037DA",
+		"purple":              "#881798",
+		"cyan":                "#3A96DD",
+		"white":               "#CCCCCC",
+		"brightBlack":         "#767676",
+		"brightRed":           "#E74856",
+		"brightGreen":         "#16C60C",
+		"brightYellow":        "#F9F1A5",
+		"brightBlue":          "#3B78FF",
+		"brightPurple":        "#B4009E",
+		"brightCyan":          "#61D6D6",
+		"brightWhite":         "#F2F2F2",
+	}
+	fontDef := map[string]any{"face": fontName, "size": size}
+	if bold {
+		fontDef["weight"] = "bold"
+	}
+	profile := map[string]any{
+		"name":        "Claune",
+		"commandline": commandline,
+		"colorScheme": "Claune",
+		"font":        fontDef,
+		"hidden":      false,
+	}
+	doc := map[string]any{
+		"profiles": []any{profile},
+		"schemes":  []any{scheme},
+	}
+	data, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+	// Write to both stable and preview install paths — whichever wt is on
+	// PATH will find it. Missing parents are created; existing fragments
+	// are overwritten each run so edits to config propagate immediately.
+	wrote := false
+	var lastErr error
+	for _, base := range []string{"Windows Terminal", "Windows Terminal Preview"} {
+		dir := filepath.Join(local, "Microsoft", base, "Fragments", "claune")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			lastErr = err
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(dir, "claune.json"), data, 0o644); err != nil {
+			lastErr = err
+			continue
+		}
+		wrote = true
+	}
+	if !wrote {
+		return fmt.Errorf("could not write fragment: %v", lastErr)
 	}
 	return nil
 }

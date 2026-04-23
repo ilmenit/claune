@@ -116,7 +116,7 @@ Full per-instance control means `claune` applies the font, size, background, and
 | alacritty | **full** | Same `-o` overrides as Linux |
 | wezterm | **full** | Same `--config` flags as Linux |
 | mintty (Git for Windows / Cygwin / MSYS2) | **full** | `-o Font=`, `-o FontHeight=`, `-o BackgroundColour=`, `-o ForegroundColour=` |
-| Windows Terminal (`wt.exe`) | **partial** | Microsoft's own terminal exposes **no CLI flag for font or terminal background**, and **no way to point at an alternate `settings.json`** - per-instance styling is [a long-standing "won't fix"](https://learn.microsoft.com/en-us/windows/terminal/command-line-arguments). We do set `--tabColor <bg>` (tab header stripe) and `--title "Claune"`; for the full experience, install alacritty/wezterm/mintty. |
+| Windows Terminal (`wt.exe`) | **full** (via fragment) | `wt.exe` exposes no CLI flag for font or background, so `claune` publishes a [fragment](https://learn.microsoft.com/en-us/windows/terminal/json-fragment-extensions) — a JSON file dropped into `%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\claune\` that defines a `Claune` profile and color scheme — and launches `wt -p Claune`. Caveat: a running wt host only reads fragments at startup, so on first use you may need to close any open wt windows. The profile persists in your dropdown until the fragment file is removed. |
 | classic `cmd.exe` | **none** | Font can only be changed by the child process itself (`SetCurrentConsoleFontEx`). Launch works; styling doesn't. |
 
 `claune` tries the terminals in the order above and uses the first one it finds on `PATH`. Pin a specific one by setting `"terminal": "kitty"` (or whatever) in your config.
